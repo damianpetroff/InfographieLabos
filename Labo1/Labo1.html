@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+  <script src="js/commonFunctions.js">
+  </script>
+  <script src="js/gl-matrix-min.js">
+  </script>
+  <script src="js/webglTools.js">
+  </script>
+  <script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+        attribute vec4 aColor;
+        uniform mat4 uMVMatrix; //model view
+        uniform mat4 uPMatrix; //Projection
+        varying vec4 vColor;
+        void main(void) {
+          vColor = aColor;
+          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        }
+      </script>
+  <script id="shader-fs" type="x-shader/x-fragment">
+    #ifdef GL_ES
+          precision highp float;
+        #endif
+          varying vec4 vColor;
+        void main(void) {
+          gl_FragColor = vColor;
+        }
+      </script>
+  <script>
+    var vertexBuffer = null;
+    var indexBuffer = null;
+    var colorBuffer = null;
+    var indices = [];
+    var vertices = [];
+    var colors = [];
+    var mvMatrix = mat4.create();
+    var pMatrix = mat4.create();
+
+    function initShaderParameters(prg) {
+      prg.vertexPositionAttribute = glContext.getAttribLocation(prg, "aVertexPosition");
+      glContext.enableVertexAttribArray(prg.vertexPositionAttribute);
+      prg.colorAttribute = glContext.getAttribLocation(prg, "aColor");
+      glContext.enableVertexAttribArray(prg.colorAttribute);
+      prg.pMatrixUniform = glContext.getUniformLocation(prg, 'uPMatrix');
+      prg.mvMatrixUniform = glContext.getUniformLocation(prg, 'uMVMatrix');
+    }
+
+    function initBuffers() {
+      vertices.push(-1.0, -1.0, 0.0);
+      vertices.push(1.0, -1.0, 0.0);
+      vertices.push(0.0, 1.0, 0.0);
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+      indices.push(0, 1, 2);
+      vertexBuffer = getVertexBufferWithVertices(vertices);
+      colorBuffer = getVertexBufferWithVertices(colors);
+      indexBuffer = getIndexBufferWithIndices(indices);
+    }
+
+    function drawScene() {
+      glContext.clearColor(0.9, 0.9, 0.9, 1.0);
+      glContext.enable(glContext.DEPTH_TEST);
+      glContext.clear(glContext.COLOR_BUFFER_BIT | glContext.DEPTH_BUFFER_BIT);
+      glContext.viewport(0, 0, c_width, c_height);
+      mat4.identity(pMatrix);
+      // mat4.identity(mvMatrix);
+      glContext.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
+      glContext.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
+      glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
+      glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
+      glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer);
+      glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
+      glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer);
+      glContext.drawElements(glContext.TRIANGLE_STRIP, indices.length, glContext.UNSIGNED_SHORT, 0);
+    }
+
+    function initWebGL() {
+      glContext = getGLContext('webgl-canvas');
+      initProgram();
+      initBuffers();
+      renderLoop();
+    }
+  </script>
+</head>
+
+<body onload="initWebGL()">
+  <div class="container">
+    <div class="page-header">
+      <h3><img src="external/resources/img/logo_hearc_ingenierie.png" alt="logo_hearc_ingenierie" width="150"> 3252.1 Infographie : Labo 1</h3>
+      <p class="lead">Authors : Team ?? (Quentin Michel, Mateo Martinez & Damian Petroff - INF3dlm-b)<br>Last update : 23th October 2018</p>
+      <hr><br>
+      <h1 class="center"> Un cube chromatique avec lequel on peut interagir</h1>
+    </div><br><br>
+    <div class="row">
+      <div class="col-md-12 col-sm-12">
+        <h3><img src="external/resources/img/flag_fr.png" alt="flag_fr" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/-->
+        <p>Le but de ce laboratoire est de permettre la visualisation d'un cube chromatique en 3D.</p>
+        <h3><img src="external/resources/img/flag_en.png" alt="flag_en" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/-->
+        <p>The purpose of this practical work is to allow the visualization of 3D chromatic cube.</p>
+      </div>
+    </div>
+    <hr>
+    <div class="row">
+      <div class="col-md-8 col-sm-12">
+        <canvas id="webgl-canvas" width="700" height="700">
+    			HTML5 is not supported
+    		</canvas>
+      </div>
+      <div class="col-md-4 col-sm-12">
+        <h2>Parameters</h2>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <label class="input-group-text" for="modes">Mode</label>
+          </div>
+          <select class="custom-select" id="modes">
+            <option value="cube" selected>Cube</option>
+            <option value="cone">Cone</option>
+            <option value="triangle">Triangle</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <h2>References</h2>
+		 <ul class="a-autoFill">
+      <li>WebGL par la pratique© 2015 : <a href="https://www.webgl3d.info"></a></li>
+    </ul>
+    <h2>Libraries</h2>
+    <ul>
+      <li>Bootstrap : <a href="https://getbootstrap.com"></a></li>
+    </ul>
+      <p class="lead center">Quentin Michel, Mateo Martinez, Damian Petroff - HE-Arc - 2018</p>
+    </div>
+</body>
+<script id='code-js' type="text/javascript">
+  var myCanvas = document.getElementById('webgl-canvas');
+  var mousedown = false;
+  var viewMatrix = mat4.create();
+  var anglex = 0.0;
+  var angley = 0.0;
+  var lastX = 0.0;
+  var lastY = 0.0;
+  myCanvas.addEventListener('mousedown', function(evt) {
+    mousedown = true;
+  }, false);
+  myCanvas.addEventListener('mouseup', function(evt) {
+    mousedown = false;
+  }, false);
+  myCanvas.addEventListener('mousemove', function(evt) {
+    if (mousedown) {
+      var mousePos = {
+        x: evt.offsetX,
+        y: evt.offsetY
+      }
+      var pX = (mousePos.x - myCanvas.width / 2.0) / myCanvas.width * 2.0;
+      var pY = (myCanvas.height / 2.0 - mousePos.y) / myCanvas.height * 2.0;
+      var message = 'angle: ' + anglex + ',' + angley;
+      var factorRotation =5;
+      anglex += factorRotation * (pX-lastX);
+      angley += factorRotation * (pY-lastY);
+      mvMatrix = getTransformationMatrix(angley, anglex, 0);
+      lastX = pX;
+      lastY = pY;
+      console.log(message);
+    }
+  }, false);
+  // Gets a transformation matrix given the rotation angles
+  function getTransformationMatrix(rx, ry, rz) {
+    // Pre-computes trigonometric values (mainly for better readability)
+    var cx = Math.cos(rx),
+      sx = Math.sin(rx);
+    var cy = Math.cos(ry),
+      sy = Math.sin(ry);
+    var cz = Math.cos(rz),
+      sz = Math.sin(rz);
+
+    // Returns matrix
+    return new Float32Array([cy * cz, (sx * sy * cz - cx * sz), (sx * sz + cx * sy * cz), 0,
+      cy * sz, (sx * sy * sz + cx * cz), (cx * sy * sz - sx * cz), 0,
+      -sy, sx * cy, cx * cy, 0,
+      0, 0, 0, 1
+    ]);
+  }
+</script>
+
+</html>
