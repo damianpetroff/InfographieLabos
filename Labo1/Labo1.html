@@ -5,12 +5,10 @@
   <meta charset="utf-8" />
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
-  <script src="js/commonFunctions.js">
-  </script>
-  <script src="js/gl-matrix-min.js">
-  </script>
-  <script src="js/webglTools.js">
-  </script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="js/commonFunctions.js"></script>
+  <script src="js/gl-matrix-min.js"></script>
+  <script src="js/webglTools.js"></script>
   <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
         attribute vec4 aColor;
@@ -32,12 +30,28 @@
         }
       </script>
   <script>
-    var vertexBuffer = null;
-    var indexBuffer = null;
-    var colorBuffer = null;
-    var indices = [];
-    var vertices = [];
-    var colors = [];
+    var vertexBuffer_cube = null;
+    var vertexBuffer_cone = null;
+
+    var indexBuffer_cube_fan1 = null;
+    var indexBuffer_cube_fan2 = null;
+    var indexBuffer_cone_fan1 = null;
+    var indexBuffer_cone_fan2 = null;
+
+    var colorBuffer_cube = null;
+    var colorBuffer_cone = null;
+
+    var indices_cube_fan1 = [];
+    var indices_cube_fan2 = [];
+    var indices_cone_fan1 = [];
+    var indices_cone_fan2 = [];
+
+    var vertices_cube = [];
+    var vertices_cone = [];
+
+    var colors_cube = [];
+    var colors_cone = [];
+
     var mvMatrix = mat4.create();
     var pMatrix = mat4.create();
 
@@ -51,146 +65,81 @@
     }
 
     function initBuffers() {
-      // ORDRE DE CREATION DES FACES  :
-      // 1° face camera
-      // 2-3-4 en tournant par la droite
-      // dessus
-      // dessous
 
+      // --------------------------------------------   RGB Cube
       // Logique :
-      // Le triangle suivant par toujours des 2 points de celui d'avant (eviter de trop se perdre)
+      // On peut faire un cube avec uniquement 2 TRIANGLE_FAN : 
+      // Le premier avec comme "Hub" le sommet blanc, le deuxième avec le sommet noir
 
-      // 1° Square
-      vertices.push(-1.0, -1.0, 0.0);
-      vertices.push(1.0, -1.0, 0.0);
-      vertices.push(-1.0, 1.0, 0.0);
+      // Les 8 sommets du cube
+      vertices_cube.push(-1.0, 1.0, 1.0);  //0
+      vertices_cube.push( 1.0, 1.0, 1.0);  //1 
+      vertices_cube.push( 1.0,-1.0, 1.0);  //2
+      vertices_cube.push(-1.0,-1.0, 1.0);  //3
+      vertices_cube.push(-1.0, 1.0,-1.0);  //4
+      vertices_cube.push( 1.0, 1.0,-1.0);  //5 
+      vertices_cube.push( 1.0,-1.0,-1.0);  //6
+      vertices_cube.push(-1.0,-1.0,-1.0);  //7
 
-      vertices.push(1.0, -1.0, 0.0);
-      vertices.push(-1.0, 1.0, 0.0);
-      vertices.push(1.0, 1.0, 0.0);
-      //
+      // À chaque sommet sa couleur
+      colors_cube.push(1.0, 1.0, 1.0, 1.0); //0 white
+      colors_cube.push(0.0, 1.0, 1.0, 1.0); //1 cyan
+      colors_cube.push(0.0, 0.0, 1.0, 1.0); //2 blue
+      colors_cube.push(1.0, 0.0, 1.0, 1.0); //3 magenta
+      colors_cube.push(1.0, 1.0, 0.0, 1.0); //4 yellow
+      colors_cube.push(0.0, 1.0, 0.0, 1.0); //5 green
+      colors_cube.push(0.0, 0.0, 0.0, 1.0); //6 black
+      colors_cube.push(1.0, 0.0, 0.0, 1.0); //7 red
 
-      // 2e Square
-      vertices.push(1.0, 1.0, 0.0);
-      vertices.push(1.0, -1.0, 0.0);
-      vertices.push(1.0, 1.0, 2.0);
+      // Les 2 fans du cube
+      indices_cube_fan1.push(0,1,2,3,7,4,5,1);
+      indices_cube_fan2.push(6,7,4,5,1,2,3,7);
 
-      vertices.push(1.0, -1.0, 0.0);
-      vertices.push(1.0, 1.0, 2.0);
-      vertices.push(1.0, -1.0, 2.0);
-      //
+      vertexBuffer_cube = getVertexBufferWithVertices(vertices_cube);
+      colorBuffer_cube = getVertexBufferWithVertices(colors_cube);
+      indexBuffer_cube_fan1 = getIndexBufferWithIndices(indices_cube_fan1);
+      indexBuffer_cube_fan2 = getIndexBufferWithIndices(indices_cube_fan2);
 
-      // 3e
-      vertices.push(1.0, 1.0, 2.0);
-      vertices.push(1.0, -1.0, 2.0);
-      vertices.push(-1.0, -1.0, 2.0);
+      /// -------------------------------------------    HSV Cone
+      // Le cone est également fait avec 2 TRIANGLE_FAN.
+      // 1 depuis le sommet noir (sommet du cone) et l'autre depuis le sommet blanc 
+      // (qui est en fait le centre du cercle qui forme la base)
 
-      vertices.push(1.0, 1.0, 2.0);
-      vertices.push(-1.0, -1.0, 2.0);
-      vertices.push(-1.0, 1.0, 2.0);
-      //
+      //Les deux sommets de base et leur couleur
+      vertices_cone.push(0.0, 0.0, 1.0);  //0
+      colors_cone.push(0.0, 0.0, 0.0, 1.0); //0 black
+      vertices_cone.push(0.0, 0.0,-1.0);  //1
+      colors_cone.push(1.0, 1.0, 1.0,1.0); //1 white
 
-      // 4e
-      vertices.push(-1.0, 1.0, 2.0);
-      vertices.push(-1.0, -1.0, 2.0);
-      vertices.push(-1.0, -1.0, 0.0);
+      //On donne déjà les "hubs" des TRIANGLE_FAN
+      indices_cone_fan1.push(0); //Le sommet noir
+      indices_cone_fan2.push(1); //Le sommet blanc
 
-      vertices.push(-1.0, 1.0, 2.0);
-      vertices.push(-1.0, -1.0, 0.0);
-      vertices.push(-1.0, 1.0, 0.0);
-      //
+      var NUM_VERTICES = 100; //Ici on peut changer le nombre de sommets qui forment le cercle (100 est bien)
+      for(var i = 0; i < NUM_VERTICES+2; i++)
+      {
+        //Ensuite pour chaque itération on va trouver un angle ainsi une position, donc un vertex.
+        var angle = (i/NUM_VERTICES)*2*Math.PI
+        var x = Math.cos(angle);
+        var y = Math.sin(angle);
+        //console.log("x:"+x+", y:"+y);
+        vertices_cone.push(x, y,-1.0);
+        var colors = HSVtoRGB(angle*Math.PI/20, 1, 1); //on trouve la couleur HSV de l'angle 
+        colors_cone.push(colors[0], colors[1], colors[2], 1.0); //on lui donne sa couleur
 
-      // dessus
-      vertices.push(-1.0, 1.0, 2.0);
-      vertices.push(-1.0, 1.0, 0.0);
-      vertices.push(1.0, 1.0, 2.0);
+        indices_cone_fan1.push(i+1); //on ajoute l'indice de ce vertex aux 2 TRIANGLE_FAN
+        indices_cone_fan2.push(i+1);
+      }
 
-      vertices.push(-1.0, 1.0, 0.0);
-      vertices.push(1.0, 1.0, 2.0);
-      vertices.push(1.0, 1.0, 0.0);
-      //
 
-      // dessous
-      vertices.push(-1.0, -1.0, 0.0);
-      vertices.push(-1.0, -1.0, 2.0);
-      vertices.push(1.0, -1.0, 2.0);
-
-      vertices.push(-1.0, -1.0, 0.0);
-      vertices.push(1.0, -1.0, 2.0);
-      vertices.push(1.0, -1.0, 0.0);
-      //
-
-      // Colors TODO
-
-      // 1er
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-      //
-
-      // 2e
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-      //
-
-      // 3e
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-      //
-
-      // 4e
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-      //
-
-      // dessus
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-      //
-
-      // dessous
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-
-      colors.push(1.0, 0.0, 0.0, 1.0);
-      colors.push(0.0, 1.0, 0.0, 1.0);
-      colors.push(0.0, 0.0, 1.0, 1.0);
-      //
-
-      // PUSH MASSIF
-      indices.push(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35);
-      vertexBuffer = getVertexBufferWithVertices(vertices);
-      colorBuffer = getVertexBufferWithVertices(colors);
-      indexBuffer = getIndexBufferWithIndices(indices);
+      vertexBuffer_cone = getVertexBufferWithVertices(vertices_cone);
+      colorBuffer_cone = getVertexBufferWithVertices(colors_cone);
+      indexBuffer_cone_fan1 = getIndexBufferWithIndices(indices_cone_fan1);
+      indexBuffer_cone_fan2 = getIndexBufferWithIndices(indices_cone_fan2);
     }
 
     function drawScene() {
-      glContext.clearColor(0.9, 0.9, 0.9, 1.0);
+      glContext.clearColor(1.0, 1.0, 1.0, 1.0);
       glContext.enable(glContext.DEPTH_TEST);
       glContext.clear(glContext.COLOR_BUFFER_BIT | glContext.DEPTH_BUFFER_BIT);
       glContext.viewport(0, 0, c_width, c_height);
@@ -198,13 +147,37 @@
       // mat4.identity(mvMatrix);
       glContext.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
       glContext.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
-      glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
-      glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
-      glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer);
-      glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
-      glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer);
-      glContext.drawElements(glContext.TRIANGLES, indices.length, glContext.UNSIGNED_SHORT, 0);
+      
+      switch($('option:selected', '#modes').val()){
+        case 'cube':
+          //RGB Cube
+          glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer_cube);
+          glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
+          glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer_cube);
+          glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
+          glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer_cube_fan1);
+          glContext.drawElements(glContext.TRIANGLE_FAN, indices_cube_fan1.length, glContext.UNSIGNED_SHORT, 0);
+          glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer_cube_fan2);
+          glContext.drawElements(glContext.TRIANGLE_FAN, indices_cube_fan2.length, glContext.UNSIGNED_SHORT, 0);
+          break;
+        case 'cone':
+          //Cone
+          glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer_cone);
+          glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
+          glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer_cone);
+          glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
+          glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer_cone_fan1);
+          glContext.drawElements(glContext.TRIANGLE_FAN, indices_cone_fan1.length, glContext.UNSIGNED_SHORT, 0);
+          glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer_cone_fan2);
+          glContext.drawElements(glContext.TRIANGLE_FAN, indices_cone_fan2.length, glContext.UNSIGNED_SHORT, 0);
+          break;
+      }
+      
+
+      
+
     }
+
 
     function initWebGL() {
       glContext = getGLContext('webgl-canvas');
@@ -212,42 +185,65 @@
       initBuffers();
       renderLoop();
     }
+
+    var HSVtoRGB = function(h, s, v) { //this is from https://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately
+      var r, g, b, i, f, p, q, t;
+      if (arguments.length === 1) {
+          s = h.s, v = h.v, h = h.h;
+      }
+      i = Math.floor(h * 6);
+      f = h * 6 - i;
+      p = v * (1 - s);
+      q = v * (1 - f * s);
+      t = v * (1 - (1 - f) * s);
+      switch (i % 6) {
+          case 0: r = v, g = t, b = p; break;
+          case 1: r = q, g = v, b = p; break;
+          case 2: r = p, g = v, b = t; break;
+          case 3: r = p, g = q, b = v; break;
+          case 4: r = t, g = p, b = v; break;
+          case 5: r = v, g = p, b = q; break;
+      }
+      return [r, g, b];
+    }
   </script>
+  <title>Team 4 - Labo 1</title>
 </head>
 
 <body onload="initWebGL()">
   <div class="container">
     <div class="page-header">
-      <h3><img src="external/resources/img/logo_hearc_ingenierie.png" alt="logo_hearc_ingenierie" width="150"> 3252.1 Infographie : Labo 1</h3>
-      <p class="lead">Authors : Team ?? (Quentin Michel, Mateo Martinez & Damian Petroff - INF3dlm-b)<br>Last update : 23th October 2018</p>
+      <h3><img src="external/resources/img/logo_hearc_ingenierie.png" alt="logo_hearc_ingenierie" width="150"> 3252.1 Infographie</h3>
+      <p class="lead">Authors : Team 4 (Quentin Michel, Mateo Martinez & Damian Petroff - INF3dlm-b)<br>Last update : 23th October 2018</p>
       <hr><br>
-      <h1 class="center"> Un cube chromatique avec lequel on peut interagir</h1>
+      <h1 class="center">Labo 1 : Un cube chromatique avec lequel on peut interagir</h1>
     </div><br><br>
     <div class="row">
       <div class="col-md-12 col-sm-12">
         <h3><img src="external/resources/img/flag_fr.png" alt="flag_fr" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/-->
         <p>Le but de ce laboratoire est de permettre la visualisation d'un cube chromatique en 3D.</p>
-        <h3><img src="external/resources/img/flag_en.png" alt="flag_en" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/-->
-        <p>The purpose of this practical work is to allow the visualization of 3D chromatic cube.</p>
+        <p>Il est possible de visualiser le cube sous tous ses angles en le faisant tourner avec la souris.</p>
+        <p>En terme de bonus, nous avons également réalisé un cone HSV, qui définit l'espace couleur Hue-Saturation-Value</p>
+        <!--<h3><img src="external/resources/img/flag_en.png" alt="flag_en" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/->
+        <p>The purpose of this practical work is to allow the visualization of 3D chromatic cube.</p>-->
       </div>
     </div>
     <hr>
     <div class="row">
       <div class="col-md-8 col-sm-12">
-        <canvas id="webgl-canvas" width="700" height="700">
+        <canvas id="webgl-canvas" width="750" height="750">
     			HTML5 is not supported
     		</canvas>
       </div>
       <div class="col-md-4 col-sm-12">
-        <h2>Parameters</h2>
+        <h2>Settings</h2><br><br>
         <div class="input-group mb-3">
           <div class="input-group-prepend">
             <label class="input-group-text" for="modes">Mode</label>
           </div>
           <select class="custom-select" id="modes">
-            <option value="cube" selected>Cube</option>
-            <option value="cone">Cone</option>
-            <option value="triangle">Triangle</option>
+            <option value="cube" selected>RGB Cube</option>
+            <option value="cone">HSV Cone</option>
           </select>
         </div>
       </div>
@@ -260,6 +256,7 @@
     <h2>Libraries</h2>
     <ul>
       <li>Bootstrap : <a href="https://getbootstrap.com"></a></li>
+      <li>JQuery : <a href="https://jquery.com/"></a></li>
     </ul>
       <p class="lead center">Quentin Michel, Mateo Martinez, Damian Petroff - HE-Arc - 2018</p>
     </div>
@@ -293,7 +290,7 @@
       mvMatrix = getTransformationMatrix(angley, anglex, 0);
       lastX = pX;
       lastY = pY;
-      console.log(message);
+      //console.log(message);
     }
   }, false);
   // Gets a transformation matrix given the rotation angles
