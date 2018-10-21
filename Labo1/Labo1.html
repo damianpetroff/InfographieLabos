@@ -19,7 +19,7 @@
         varying vec4 vColor;
         void main(void) {
           vColor = aColor;
-          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 2.0);
         }
       </script>
   <script id="shader-fs" type="x-shader/x-fragment">
@@ -51,13 +51,139 @@
     }
 
     function initBuffers() {
+      // ORDRE DE CREATION DES FACES  :
+      // 1° face camera
+      // 2-3-4 en tournant par la droite
+      // dessus
+      // dessous
+
+      // Logique :
+      // Le triangle suivant par toujours des 2 points de celui d'avant (eviter de trop se perdre)
+
+      // 1° Square
       vertices.push(-1.0, -1.0, 0.0);
       vertices.push(1.0, -1.0, 0.0);
-      vertices.push(0.0, 1.0, 0.0);
+      vertices.push(-1.0, 1.0, 0.0);
+
+      vertices.push(1.0, -1.0, 0.0);
+      vertices.push(-1.0, 1.0, 0.0);
+      vertices.push(1.0, 1.0, 0.0);
+      //
+
+      // 2e Square
+      vertices.push(1.0, 1.0, 0.0);
+      vertices.push(1.0, -1.0, 0.0);
+      vertices.push(1.0, 1.0, 2.0);
+
+      vertices.push(1.0, -1.0, 0.0);
+      vertices.push(1.0, 1.0, 2.0);
+      vertices.push(1.0, -1.0, 2.0);
+      //
+
+      // 3e
+      vertices.push(1.0, 1.0, 2.0);
+      vertices.push(1.0, -1.0, 2.0);
+      vertices.push(-1.0, -1.0, 2.0);
+
+      vertices.push(1.0, 1.0, 2.0);
+      vertices.push(-1.0, -1.0, 2.0);
+      vertices.push(-1.0, 1.0, 2.0);
+      //
+
+      // 4e
+      vertices.push(-1.0, 1.0, 2.0);
+      vertices.push(-1.0, -1.0, 2.0);
+      vertices.push(-1.0, -1.0, 0.0);
+
+      vertices.push(-1.0, 1.0, 2.0);
+      vertices.push(-1.0, -1.0, 0.0);
+      vertices.push(-1.0, 1.0, 0.0);
+      //
+
+      // dessus
+      vertices.push(-1.0, 1.0, 2.0);
+      vertices.push(-1.0, 1.0, 0.0);
+      vertices.push(1.0, 1.0, 2.0);
+
+      vertices.push(-1.0, 1.0, 0.0);
+      vertices.push(1.0, 1.0, 2.0);
+      vertices.push(1.0, 1.0, 0.0);
+      //
+
+      // dessous
+      vertices.push(-1.0, -1.0, 0.0);
+      vertices.push(-1.0, -1.0, 2.0);
+      vertices.push(1.0, -1.0, 2.0);
+
+      vertices.push(-1.0, -1.0, 0.0);
+      vertices.push(1.0, -1.0, 2.0);
+      vertices.push(1.0, -1.0, 0.0);
+      //
+
+      // Colors TODO
+
+      // 1er
       colors.push(1.0, 0.0, 0.0, 1.0);
       colors.push(0.0, 1.0, 0.0, 1.0);
       colors.push(0.0, 0.0, 1.0, 1.0);
-      indices.push(0, 1, 2);
+
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+      //
+
+      // 2e
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+      //
+
+      // 3e
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+      //
+
+      // 4e
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+      //
+
+      // dessus
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+      //
+
+      // dessous
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+
+      colors.push(1.0, 0.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 0.0, 1.0, 1.0);
+      //
+
+      // PUSH MASSIF
+      indices.push(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35);
       vertexBuffer = getVertexBufferWithVertices(vertices);
       colorBuffer = getVertexBufferWithVertices(colors);
       indexBuffer = getIndexBufferWithIndices(indices);
@@ -77,7 +203,7 @@
       glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer);
       glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
       glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer);
-      glContext.drawElements(glContext.TRIANGLE_STRIP, indices.length, glContext.UNSIGNED_SHORT, 0);
+      glContext.drawElements(glContext.TRIANGLES, indices.length, glContext.UNSIGNED_SHORT, 0);
     }
 
     function initWebGL() {
