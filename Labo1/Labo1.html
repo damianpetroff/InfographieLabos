@@ -17,7 +17,7 @@
         varying vec4 vColor;
         void main(void) {
           vColor = aColor;
-          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 2.0);
+          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.75);
         }
       </script>
   <script id="shader-fs" type="x-shader/x-fragment">
@@ -65,19 +65,18 @@
     }
 
     function initBuffers() {
-
       // --------------------------------------------   RGB Cube
       // Logique :
-      // On peut faire un cube avec uniquement 2 TRIANGLE_FAN : 
+      // On peut faire un cube avec uniquement 2 TRIANGLE_FAN :
       // Le premier avec comme "Hub" le sommet blanc, le deuxième avec le sommet noir
 
       // Les 8 sommets du cube
       vertices_cube.push(-1.0, 1.0, 1.0);  //0
-      vertices_cube.push( 1.0, 1.0, 1.0);  //1 
+      vertices_cube.push( 1.0, 1.0, 1.0);  //1
       vertices_cube.push( 1.0,-1.0, 1.0);  //2
       vertices_cube.push(-1.0,-1.0, 1.0);  //3
       vertices_cube.push(-1.0, 1.0,-1.0);  //4
-      vertices_cube.push( 1.0, 1.0,-1.0);  //5 
+      vertices_cube.push( 1.0, 1.0,-1.0);  //5
       vertices_cube.push( 1.0,-1.0,-1.0);  //6
       vertices_cube.push(-1.0,-1.0,-1.0);  //7
 
@@ -101,8 +100,9 @@
       indexBuffer_cube_fan2 = getIndexBufferWithIndices(indices_cube_fan2);
 
       /// -------------------------------------------    HSV Cone
+      // Ici c'est exactement le même principe.
       // Le cone est également fait avec 2 TRIANGLE_FAN.
-      // 1 depuis le sommet noir (sommet du cone) et l'autre depuis le sommet blanc 
+      // Le premier depuis le sommet noir (sommet du cone) et l'autre depuis le sommet blanc
       // (qui est en fait le centre du cercle qui forme la base)
 
       //Les deux sommets de base et leur couleur
@@ -116,15 +116,16 @@
       indices_cone_fan2.push(1); //Le sommet blanc
 
       var NUM_VERTICES = 100; //Ici on peut changer le nombre de sommets qui forment le cercle (100 est bien)
-      for(var i = 0; i < NUM_VERTICES+2; i++)
+      var radius = 1.2;
+      for(var i = 0; i-2 < NUM_VERTICES; i++)
       {
         //Ensuite pour chaque itération on va trouver un angle ainsi une position, donc un vertex.
-        var angle = (i/NUM_VERTICES)*2*Math.PI
-        var x = Math.cos(angle);
-        var y = Math.sin(angle);
+        var angle = (i/NUM_VERTICES)*2*Math.PI;
+        var x = Math.cos(angle)*radius;
+        var y = Math.sin(angle)*radius;
         //console.log("x:"+x+", y:"+y);
         vertices_cone.push(x, y,-1.0);
-        var colors = HSVtoRGB(angle*Math.PI/20, 1, 1); //on trouve la couleur HSV de l'angle 
+        var colors = HSVtoRGB(angle*Math.PI/20, 1, 1); //on trouve la couleur HSV de l'angle
         colors_cone.push(colors[0], colors[1], colors[2], 1.0); //on lui donne sa couleur
 
         indices_cone_fan1.push(i+1); //on ajoute l'indice de ce vertex aux 2 TRIANGLE_FAN
@@ -147,7 +148,7 @@
       // mat4.identity(mvMatrix);
       glContext.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
       glContext.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
-      
+
       switch($('option:selected', '#modes').val()){
         case 'cube':
           //RGB Cube
@@ -172,9 +173,9 @@
           glContext.drawElements(glContext.TRIANGLE_FAN, indices_cone_fan2.length, glContext.UNSIGNED_SHORT, 0);
           break;
       }
-      
 
-      
+
+
 
     }
 
