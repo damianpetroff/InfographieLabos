@@ -1,5 +1,5 @@
-a:after {
-    content: attr(href);
+.outerlink:after {
+  content: attr(href);
 }
 
 #holder {
@@ -30,6 +30,7 @@ a:after {
 dl {
   margin-left: 45px;
 }
+
 dt:before{
   margin-left: -10px;
   content:"• ";
