@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="js/commonFunctions.js"></script>
+  <script src="js/gl-matrix-min.js"></script>
+  <script src="js/webglTools.js"></script>
+  <script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+        attribute vec4 aColor;
+        uniform mat4 uMVMatrix; //model view
+        uniform mat4 uPMatrix; //Projection
+        varying vec4 vColor;
+        void main(void) {
+          vColor = aColor;
+          gl_PointSize = 2.0;
+          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.2);
+        }
+      </script>
+  <script id="shader-fs" type="x-shader/x-fragment">
+    #ifdef GL_ES
+          precision highp float;
+        #endif
+          varying vec4 vColor;
+        void main(void) {
+          gl_FragColor = vColor;
+        }
+      </script>
+  <script>
+    var n = 50;
+    var gridHeight = n;
+    var gridWidth = n;
+    var theGrid = createArray(gridWidth);
+    var mirrorGrid = createArray(gridWidth);
+
+    var vertexBuffer = null;
+    var indexBuffer = null;
+    var colorBuffer= null;
+
+    var indices = [];
+    var vertices = [];
+    var colors= [];
+
+    var mvMatrix = mat4.create();
+    var pMatrix = mat4.create();
+
+    function initShaderParameters(prg) {
+      prg.vertexPositionAttribute = glContext.getAttribLocation(prg, "aVertexPosition");
+      glContext.enableVertexAttribArray(prg.vertexPositionAttribute);
+      prg.colorAttribute = glContext.getAttribLocation(prg, "aColor");
+      glContext.enableVertexAttribArray(prg.colorAttribute);
+      prg.pMatrixUniform = glContext.getUniformLocation(prg, 'uPMatrix');
+      prg.mvMatrixUniform = glContext.getUniformLocation(prg, 'uMVMatrix');
+    }
+
+    function initBuffers(n) {
+      indices = [];
+      vertices = [];
+      colors= [];
+      n *= 1.0;
+      delta = 2.0/n;
+      cpt = 0;
+      for(var i = 0; i < n; i++)
+      {
+        for(var j=0; j < n; j++)
+        {
+          vertices.push((i/n)*2-1, (j/n)*2-1, 0);
+          vertices.push((i/n)*2-1+delta, (j/n)*2-1, 0);
+          vertices.push((i/n)*2-1, (j/n)*2-1+delta, 0);
+          vertices.push((i/n)*2-1+delta, (j/n)*2-1+delta, 0);
+          colors.push(0.0, 1.0, 0.0, 1.0);
+          colors.push(0.0, 1.0, 0.0, 1.0);
+          colors.push(0.0, 1.0, 0.0, 1.0);
+          colors.push(0.0, 1.0, 0.0, 1.0);
+          indices.push(cpt, cpt+1, cpt+2);
+          indices.push(cpt+1, cpt+2, cpt+3);
+          cpt+=4
+        }
+      }
+
+
+
+      vertexBuffer = getVertexBufferWithVertices(vertices);
+      colorBuffer = getVertexBufferWithVertices(colors);
+      indexBuffer = getIndexBufferWithIndices(indices);
+    }
+
+    function drawScene() {
+      glContext.clearColor(0.7, 0.7, 0.7, 1.0);
+      glContext.enable(glContext.DEPTH_TEST);
+      glContext.clear(glContext.COLOR_BUFFER_BIT | glContext.DEPTH_BUFFER_BIT);
+      glContext.viewport(0, 0, c_width, c_height);
+      mat4.identity(pMatrix);
+      // mat4.identity(mvMatrix);
+      glContext.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
+      glContext.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
+
+      switch($('option:selected', '#modes').val()){
+        case 'cube':
+          //RGB Cube
+          glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
+          glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
+          glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer);
+          glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
+          glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer);
+          glContext.drawElements(glContext.TRIANGLES, indices.length, glContext.UNSIGNED_SHORT, 0);
+          break;
+        case 'cone':
+          break;
+      }
+
+
+
+
+    }
+
+
+
+    function initWebGL() {
+      fillRandom();
+      glContext = getGLContext('webgl-canvas');
+      initProgram();
+      tick();
+      initBuffers(n);
+      renderLoop();
+    }
+
+    //functions
+    function tick() { //main loop
+        updateGrid();
+        drawGrid();
+        requestAnimationFrame(tick);
+    }
+
+    function createArray(rows) { //creates a 2 dimensional array of required height
+        var arr = [];
+        for (var i = 0; i < rows; i++) {
+            arr[i] = [];
+        }
+        return arr;
+    }
+
+    function fillRandom() { //fill the grid randomly
+        for (var j = 0; j < gridHeight; j++) { //iterate through rows
+            for (var k = 0; k < gridWidth; k++) { //iterate through columns
+                theGrid[j][k] = Math.round(Math.random());
+            }
+        }
+    }
+
+    function drawGrid() { //draw the contents of the grid onto a canvas
+    var liveCount = 0;
+    colors=[];
+      for (var j = 0; j < gridHeight; j++) { //iterate through rows
+        for (var k = 0; k < gridWidth; k++) { //iterate through columns
+          if (theGrid[j][k] === 1) {
+            colors.push(1.0, 0.0, 0.0, 1.0);
+            colors.push(1.0, 0.0, 0.0, 1.0);
+            colors.push(1.0, 0.0, 0.0, 1.0);
+            colors.push(1.0, 0.0, 0.0, 1.0);
+            liveCount++;
+          }
+          else {
+            colors.push(0.0, 0.0, 0.0, 1.0);
+            colors.push(0.0, 0.0, 0.0, 1.0);
+            colors.push(0.0, 0.0, 0.0, 1.0);
+            colors.push(0.0, 0.0, 0.0, 1.0);
+          }
+        }
+      }
+      colorBuffer = getVertexBufferWithVertices(colors);
+      console.log(liveCount/100);
+    }
+
+    function updateGrid() { //perform one iteration of grid update
+        for (var j = 1; j < gridHeight-1; j++) { //iterate through rows
+            for (var k = 1; k < gridWidth-1; k++) { //iterate through columns
+                var totalCells = 0;
+                //add up the total values for the surrounding cells
+                totalCells += theGrid[j - 1][k - 1]; //top left
+                totalCells += theGrid[j - 1][k]; //top center
+                totalCells += theGrid[j - 1][k + 1]; //top right
+
+                totalCells += theGrid[j][k - 1]; //middle left
+                totalCells += theGrid[j][k + 1]; //middle right
+
+                totalCells += theGrid[j + 1][k - 1]; //bottom left
+                totalCells += theGrid[j + 1][k]; //bottom center
+                totalCells += theGrid[j + 1][k + 1]; //bottom right
+
+                //apply the rules to each cell
+                switch (totalCells) {
+                    case 2:
+                        mirrorGrid[j][k] = theGrid[j][k];
+
+                        break;
+                    case 3:
+                        mirrorGrid[j][k] = 1; //live
+
+                        break;
+                    default:
+                        mirrorGrid[j][k] = 0; //
+                }
+            }
+        }
+
+        //mirror edges to create wraparound effect
+        for (var l = 1; l < gridHeight - 1; l++) { //iterate through rows
+            //top and bottom
+            mirrorGrid[l][0] = mirrorGrid[l][gridHeight - 3];
+            mirrorGrid[l][gridHeight - 1] = mirrorGrid[l][1];
+            //left and right
+            mirrorGrid[0][l] = mirrorGrid[gridHeight - 3][l];
+            mirrorGrid[gridHeight - 1][l] = mirrorGrid[1][l];
+        }
+
+
+        //swap grids
+        var temp = theGrid;
+        theGrid = mirrorGrid;
+        mirrorGrid = temp;
+    }
+
+  </script>
+  <title>Team 4 - Labo 1</title>
+</head>
+
+<body onload="initWebGL()">
+  <div class="container">
+    <div class="page-header">
+      <h3>
+        <a href="http://he-arc.ch"><img src="external/resources/img/logo_hearc_ingenierie.png" alt="logo_hearc_ingenierie" width="150px" /></a> 3252.1 Infographie
+
+      </h3>
+      <p class="lead">Authors : Team 4 (Quentin Michel, Mateo Martinez & Damian Petroff - INF3dlm-b)<br>Last update : 23th October 2018</p>
+      <hr><br>
+      <h1 class="center">Labo 1 : Un cube chromatique avec lequel on peut interagir</h1>
+    </div><br><br>
+    <div class="row">
+      <div class="col-md-12 col-sm-12">
+        <h3><img src="external/resources/img/flag_fr.png" alt="flag_fr" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/-->
+        <p>Le but de ce laboratoire est de permettre la visualisation d'un cube chromatique en 3D. Il est possible de visualiser le cube sous tous ses angles en le faisant tourner avec la souris.</p>
+        <p>En gise de bonus, nous avons également réalisé un cone HSV (<b>surface courbe</b>), qui définit l'espace couleur Hue-Saturation-Value</p>
+        <p>Chacune des deux formes est formée par seulement 2 TRIANGLE_FANs utilisant chacun comme hub les sommets blancs et noirs.</p>
+        <!--<h3><img src="external/resources/img/flag_en.png" alt="flag_en" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/->
+        <p>The purpose of this practical work is to allow the visualization of 3D chromatic cube.</p>-->
+      </div>
+    </div>
+    <hr>
+    <div class="row">
+      <div class="col-md-8 col-sm-12">
+        <canvas id="webgl-canvas" width="750" height="750">
+    			HTML5 is not supported
+    		</canvas>
+      </div>
+      <div class="col-md-4 col-sm-12">
+        <h2>Settings</h2><br><br>
+        <div class="input-group mb-3">
+          <div class="input-group-prepend">
+            <label class="input-group-text" for="modes">Mode</label>
+          </div>
+          <select class="custom-select" id="modes">
+            <option value="cube" selected>RGB Cube</option>
+            <option value="cone">HSV Cone</option>
+          </select>
+        </div>
+        <label for="range">Size of the board</label>
+        <div class="range range-success">
+            <input id ="rangeCursor" type="range" name="range" min="50" max="100" value="50" onchange="initBuffers(value);range.value=value">
+            <output id="range">50</output>
+        </div>
+        </div class="row">
+          <output id="la">value</output>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <h2>References</h2>
+		 <ul class="a-autoFill">
+      <li>WebGL par la pratique© 2015 : <a class="outerlink" href="http://www.webgl3d.info"></a></li>
+    </ul>
+    <h2>Libraries</h2>
+    <ul>
+      <li>Bootstrap : <a class="outerlink" href="https://getbootstrap.com"></a></li>
+      <li>JQuery : <a class="outerlink" href="https://jquery.com/"></a></li>
+    </ul>
+      <p class="lead center">Quentin Michel, Mateo Martinez, Damian Petroff - HE-Arc - 2018</p>
+    </div>
+</body>
+<script id='code-js' type="text/javascript">
+
+  var myCanvas = document.getElementById('webgl-canvas');
+  var mousedown = false;
+  var viewMatrix = mat4.create();
+  var anglex = 0.0;
+  var angley = 0.0;
+  var lastX = 0.0;
+  var lastY = 0.0;
+  myCanvas.addEventListener('mousedown', function(evt) {
+    mousedown = true;
+  }, false);
+  myCanvas.addEventListener('mouseup', function(evt) {
+    mousedown = false;
+  }, false);
+  myCanvas.addEventListener('mousemove', function(evt) {
+    if (mousedown) {
+      var mousePos = {
+        x: evt.offsetX,
+        y: evt.offsetY
+      }
+      var pX = (mousePos.x - myCanvas.width / 2.0) / myCanvas.width * 2.0;
+      var pY = (myCanvas.height / 2.0 - mousePos.y) / myCanvas.height * 2.0;
+      var message = 'angle: ' + anglex + ',' + angley;
+      var factorRotation =5;
+      anglex += factorRotation * (pX-lastX);
+      angley += factorRotation * (pY-lastY);
+      mvMatrix = getTransformationMatrix(angley, anglex, 0);
+      lastX = pX;
+      lastY = pY;
+      //console.log(message);
+    }
+  }, false);
+  // Gets a transformation matrix given the rotation angles
+  function getTransformationMatrix(rx, ry, rz) {
+    // Pre-computes trigonometric values (mainly for better readability)
+    var cx = Math.cos(rx),
+      sx = Math.sin(rx);
+    var cy = Math.cos(ry),
+      sy = Math.sin(ry);
+    var cz = Math.cos(rz),
+      sz = Math.sin(rz);
+
+    // Returns matrix
+    return new Float32Array([cy * cz, (sx * sy * cz - cx * sz), (sx * sz + cx * sy * cz), 0,
+      cy * sz, (sx * sy * sz + cx * cz), (cx * sy * sz - sx * cz), 0,
+      -sy, sx * cy, cx * cy, 0,
+      0, 0, 0, 1
+    ]);
+  }
+</script>
+
+</html>
