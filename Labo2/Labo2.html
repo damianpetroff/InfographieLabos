@@ -11,129 +11,218 @@
   <script src="js/webglTools.js"></script>
   <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
-        attribute vec4 aColor;
-        uniform mat4 uMVMatrix; //model view
-        uniform mat4 uPMatrix; //Projection
-        varying vec4 vColor;
-        void main(void) {
-          vColor = aColor;
-          gl_PointSize = 2.0;
-          gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.2);
-        }
-      </script>
+    attribute vec3 aVertexNormal;
+    attribute vec2 aTextureCoord;
+    attribute vec4 aColor;
+    uniform mat4 uMVMatrix; //model view
+    uniform mat4 uPMatrix; //Projection
+    uniform mat4 uNMatrix;
+    uniform vec3 uLightPosition;
+    varying vec3 vNormal;
+    varying vec4 vColor;
+    varying vec2 vTextureCoord;
+    varying vec3 vLightRay;
+    void main(void) {
+      vColor = aColor;
+      vTextureCoord = aTextureCoord;
+      vec4 vertex = uMVMatrix * vec4(aVertexPosition, 1.4);
+      vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+      if(uLightPosition == vec3(0.0,0.0,0.0))
+        vLightRay = vec3(0.0,0.0,0.0);
+      else{
+        vLightRay = vertex.xyz - uLightPosition;
+      }
+      gl_Position = uPMatrix * vertex;
+    }
+  </script>
   <script id="shader-fs" type="x-shader/x-fragment">
     #ifdef GL_ES
-          precision highp float;
-        #endif
-          varying vec4 vColor;
-        void main(void) {
-          gl_FragColor = vColor;
-        }
-      </script>
+      precision highp float;
+    #endif
+    uniform sampler2D uColorTexture;
+    varying vec4 vColor;
+    varying vec2 vTextureCoord;
+    varying vec3 vNormal;
+    varying vec3 vLightRay;
+    void main(void) {
+      vec2 mapCoord = vec2(vTextureCoord.s, vTextureCoord.t);
+      if(mapCoord == vec2(0,0)){
+        gl_FragColor = vColor;
+      }
+      else {
+				vec4 texelColor = texture2D(uColorTexture, mapCoord);
+				vec3 finalColor;
+				finalColor = texelColor.rgb;
+				if(vLightRay != vec3(0.0,0.0,0.0)) {
+					vec3 L = normalize(vLightRay);
+					vec3 N = normalize(vNormal);
+					float lambertTerm = dot(N,-L);
+					finalColor = texelColor.rgb;
+					if( lambertTerm>0.0 )
+						finalColor *= lambertTerm;
+				}
+				gl_FragColor = vec4(finalColor, 1.0);
+      }
+    }
+  </script>
   <script>
-    var n = 50;
-    var gridHeight = n;
-    var gridWidth = n;
-    var theGrid = createArray(gridWidth);
-    var mirrorGrid = createArray(gridWidth);
+    var currentTexID = 1;
+    const maxSample = 1;
+    var gridSize = 100;
+    var theGrid = createArray(gridSize);
+    var mirrorGrid = createArray(gridSize);
+    var valueOfCases = createArray(gridSize);
 
     var vertexBuffer = null;
     var indexBuffer = null;
     var colorBuffer= null;
+    var normalBuffer = null;
+    var textCoordsBuffer = null;
+    var texColorTab = new Array();
 
     var indices = [];
     var vertices = [];
     var colors= [];
+    var normals = [];
+    var textCoords =[];
 
     var mvMatrix = mat4.create();
     var pMatrix = mat4.create();
+    var nMatrix = mat4.create();
+
+    function initLights(value){
+        glContext.uniform3f(prg.lightPositionUniform, 0, 0, value);
+    }
+
+    function setResetLightVector(checkboxID){
+      if( document.getElementById(checkboxID).checked )	{
+        initLights(1);
+      }
+      else{
+        initLights(0);
+      }
+    }
 
     function initShaderParameters(prg) {
       prg.vertexPositionAttribute = glContext.getAttribLocation(prg, "aVertexPosition");
       glContext.enableVertexAttribArray(prg.vertexPositionAttribute);
+      prg.vertexNormalAttribute = glContext.getAttribLocation(prg, "aVertexNormal");
+      glContext.enableVertexAttribArray(prg.vertexNormalAttribute);
+      prg.textureCoordsAttribute  = glContext.getAttribLocation(prg, "aTextureCoord");
+      glContext.enableVertexAttribArray(prg.textureCoordsAttribute);
       prg.colorAttribute = glContext.getAttribLocation(prg, "aColor");
       glContext.enableVertexAttribArray(prg.colorAttribute);
       prg.pMatrixUniform = glContext.getUniformLocation(prg, 'uPMatrix');
       prg.mvMatrixUniform = glContext.getUniformLocation(prg, 'uMVMatrix');
+      prg.nMatrixUniform = glContext.getUniformLocation(prg, 'uNMatrix');
+      prg.lightPositionUniform = glContext.getUniformLocation(prg, 'uLightPosition');
+      prg.colorTextureUniform = glContext.getUniformLocation(prg, "uColorTexture");
     }
 
     function initBuffers(n) {
-      indices = [];
-      vertices = [];
-      colors= [];
       n *= 1.0;
-      delta = 2.0/n;
-      cpt = 0;
-      for(var i = 0; i < n; i++)
-      {
-        for(var j=0; j < n; j++)
-        {
-          vertices.push((i/n)*2-1, (j/n)*2-1, 0);
-          vertices.push((i/n)*2-1+delta, (j/n)*2-1, 0);
-          vertices.push((i/n)*2-1, (j/n)*2-1+delta, 0);
-          vertices.push((i/n)*2-1+delta, (j/n)*2-1+delta, 0);
-          colors.push(0.0, 1.0, 0.0, 1.0);
-          colors.push(0.0, 1.0, 0.0, 1.0);
-          colors.push(0.0, 1.0, 0.0, 1.0);
-          colors.push(0.0, 1.0, 0.0, 1.0);
-          indices.push(cpt, cpt+1, cpt+2);
-          indices.push(cpt+1, cpt+2, cpt+3);
-          cpt+=4
-        }
-      }
-
-
-
+      vertices.push(-1.0,-1.0, 0);
+      vertices.push( 1.0,-1.0, 0);
+      vertices.push(-1.0, 1.0, 0);
+      vertices.push( 1.0, 1.0, 0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      normals.push(0.0, 0.0, 1.0);
+      normals.push(0.0, 0.0, 1.0);
+      normals.push(0.0, 0.0, 1.0);
+      normals.push(0.0, 0.0, 1.0);
+      indices.push(0, 1, 2);
+      indices.push(1, 2, 3);
+      textCoords.push(0.0, 0.0);
+      textCoords.push(1.0, 0.0);
+      textCoords.push(0.0, 1.0);
+      textCoords.push(1.0, 1.0);
+      normals.push(0, 0,-1);
+      normals.push(0, 0,-1);
+      normals.push(0, 0,-1);
+      normals.push(0, 0,-1);
       vertexBuffer = getVertexBufferWithVertices(vertices);
       colorBuffer = getVertexBufferWithVertices(colors);
       indexBuffer = getIndexBufferWithIndices(indices);
+      textCoordsBuffer = getArrayBufferWithArray(textCoords);
+      normalBuffer = getVertexBufferWithVertices(normals);
     }
 
     function drawScene() {
-      glContext.clearColor(0.7, 0.7, 0.7, 1.0);
+      glContext.clearColor(1.0, 1.0, 1.0, 1.0);
       glContext.enable(glContext.DEPTH_TEST);
       glContext.clear(glContext.COLOR_BUFFER_BIT | glContext.DEPTH_BUFFER_BIT);
       glContext.viewport(0, 0, c_width, c_height);
-      mat4.identity(pMatrix);
-      // mat4.identity(mvMatrix);
+      //mat4.perspective(pMatrix, Math.PI/4, 1, 2, 10);
+      mat4.perspective(pMatrix, degToRad(60), c_width / c_height, 0.1, 1000.0);
+      //mat4.identity(mvMatrix);
+      //mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, zTranslate]);
+      mat4.translate(pMatrix, pMatrix, [0.0, 0.0, -1.55]);
+      //zTranslate = 0.0;
+      rotateModelViewMatrixUsingQuaternion(true);
       glContext.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
       glContext.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
-
-      switch($('option:selected', '#modes').val()){
-        case 'cube':
-          //RGB Cube
-          glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
-          glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
-          glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer);
-          glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
-          glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer);
-          glContext.drawElements(glContext.TRIANGLES, indices.length, glContext.UNSIGNED_SHORT, 0);
-          break;
-        case 'cone':
-          break;
-      }
-
-
-
+      mat4.copy(nMatrix, mvMatrix);
+      mat4.invert(nMatrix, nMatrix);
+      mat4.transpose(nMatrix, nMatrix);
+      glContext.uniformMatrix4fv(prg.nMatrixUniform, false, nMatrix);
+      glContext.bindBuffer(glContext.ARRAY_BUFFER, normalBuffer);
+      glContext.vertexAttribPointer(prg.vertexNormalAttribute, 3, glContext.FLOAT, false, 0, 0);
+      glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
+      glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
+      glContext.bindBuffer(glContext.ARRAY_BUFFER, colorBuffer);
+      glContext.vertexAttribPointer(prg.colorAttribute, 4, glContext.FLOAT, false, 0, 0);
+      glContext.bindBuffer(glContext.ARRAY_BUFFER, textCoordsBuffer);
+      glContext.vertexAttribPointer(prg.textureCoordsAttribute, 2, glContext.FLOAT, false, 0, 0);
+      glContext.activeTexture(glContext.TEXTURE0);
+      glContext.bindTexture(glContext.TEXTURE_2D, texColorTab[currentTexID-1]);
+      glContext.uniform1i(prg.colorTextureUniform, 0);
+      glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, indexBuffer);
+      glContext.drawElements(glContext.TRIANGLES, indices.length, glContext.UNSIGNED_SHORT, 0);
 
     }
 
-
-
     function initWebGL() {
-      fillRandom();
       glContext = getGLContext('webgl-canvas');
       initProgram();
+      initBuffers();
+      initTextureWithImage( "fig/tree.png", texColorTab );
+      initLights(1);
+      resetGame(gridSize);
       tick();
-      initBuffers(n);
       renderLoop();
     }
 
+    var tickClock = 10;
+    var tickCpt = 0;
+    var tickSpeed = 9;
+    var TICKMAXSPEED = 10;
     //functions
     function tick() { //main loop
+      if (tickCpt % (TICKMAXSPEED - tickSpeed + 1) == 0)
+      {
         updateGrid();
         drawGrid();
-        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+      tickCpt+=1;
+    }
+
+    function resetGame(n){
+      gridSize = n;
+      theGrid = createArray(gridSize);
+      mirrorGrid = createArray(gridSize);
+      valueOfCases = createArray(gridSize);
+      for(var i = 0; i < gridSize; i++)
+      {
+        for(var j=0; j < gridSize; j++)
+        {
+          valueOfCases[i][j] = 0;
+        }
+      }
+      fillRandom();
     }
 
     function createArray(rows) { //creates a 2 dimensional array of required height
@@ -145,40 +234,103 @@
     }
 
     function fillRandom() { //fill the grid randomly
-        for (var j = 0; j < gridHeight; j++) { //iterate through rows
-            for (var k = 0; k < gridWidth; k++) { //iterate through columns
+        for (var j = 0; j < gridSize; j++) { //iterate through rows
+            for (var k = 0; k < gridSize; k++) { //iterate through columns
                 theGrid[j][k] = Math.round(Math.random());
             }
         }
     }
 
     function drawGrid() { //draw the contents of the grid onto a canvas
-    var liveCount = 0;
-    colors=[];
-      for (var j = 0; j < gridHeight; j++) { //iterate through rows
-        for (var k = 0; k < gridWidth; k++) { //iterate through columns
-          if (theGrid[j][k] === 1) {
-            colors.push(1.0, 0.0, 0.0, 1.0);
-            colors.push(1.0, 0.0, 0.0, 1.0);
-            colors.push(1.0, 0.0, 0.0, 1.0);
-            colors.push(1.0, 0.0, 0.0, 1.0);
+      var liveCount = 0;
+      colors=[];
+      vertices=[];
+      indices=[];
+      var n = gridSize;
+      delta = 2.0/n;
+      cpt = 4;
+      vertices.push(-1.0,-1.0, 0);
+      vertices.push( 1.0,-1.0, 0);
+      vertices.push(-1.0, 1.0, 0);
+      vertices.push( 1.0, 1.0, 0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      colors.push(0.0, 1.0, 0.0, 1.0);
+      indices.push(0, 1, 2);
+      indices.push(1, 2, 3);
+      normals.push(0, 0,-1);
+      normals.push(0, 0,-1);
+      normals.push(0, 0,-1);
+      normals.push(0, 0,-1);
+      for (var i = 0; i < gridSize; i++) { //iterate through rows
+        for (var j = 0; j < gridSize; j++) { //iterate through columns
+          if (theGrid[i][j] === 1) {
+            valueOfCases[i][j]++;
+            value = Math.log(valueOfCases[i][j]+1)/10.0;
+
+            if(value < 0.25)
+            {
+              colors.push(1.0, value*4.0, 0.0, 1.0);
+              colors.push(1.0, value*4.0, 0.0, 1.0);
+              colors.push(1.0, value*4.0, 0.0, 1.0);
+              colors.push(1.0, value*4.0, 0.0, 1.0);
+            }
+            else if (value < 1.25){
+              colors.push(1.25-value, 1.0, 0.0, 1.0);
+              colors.push(1.25-value, 1.0, 0.0, 1.0);
+              colors.push(1.25-value, 1.0, 0.0, 1.0);
+              colors.push(1.25-value, 1.0, 0.0, 1.0);
+            }
+            else {
+              colors.push(0.0, 1.0, 0.0, 1.0);
+              colors.push(0.0, 1.0, 0.0, 1.0);
+              colors.push(0.0, 1.0, 0.0, 1.0);
+              colors.push(0.0, 1.0, 0.0, 1.0);
+            }
+
+            gray = 0.1;
+            colors.push(gray, gray, gray, 1.0);
+            colors.push(gray, gray, gray, 1.0);
+            colors.push(gray, gray, gray, 1.0);
+            colors.push(gray, gray, gray, 1.0);
+
+            vertices.push((i/n)*2-1, (j/n)*2-1, value);
+            vertices.push((i/n)*2-1+delta, (j/n)*2-1, value);
+            vertices.push((i/n)*2-1, (j/n)*2-1+delta, value);
+            vertices.push((i/n)*2-1+delta, (j/n)*2-1+delta, value);
+            vertices.push((i/n)*2-1, (j/n)*2-1, 0);
+            vertices.push((i/n)*2-1+delta, (j/n)*2-1, 0);
+            vertices.push((i/n)*2-1, (j/n)*2-1+delta, 0);
+            vertices.push((i/n)*2-1+delta, (j/n)*2-1+delta, 0);
+
+            indices.push(cpt, cpt+1, cpt+2);
+            indices.push(cpt+1, cpt+2, cpt+3);
+            indices.push(cpt, cpt+2, cpt+4);
+            indices.push(cpt+6, cpt+2, cpt+4);
+            indices.push(cpt+2, cpt+3, cpt+7);
+            indices.push(cpt+2, cpt+6, cpt+7);
+            indices.push(cpt+3, cpt+1, cpt+7);
+            indices.push(cpt+5, cpt+1, cpt+7);
+            indices.push(cpt, cpt+1, cpt+4);
+            indices.push(cpt+5, cpt+1, cpt+4);
+            cpt+=8;
             liveCount++;
           }
           else {
-            colors.push(0.0, 0.0, 0.0, 1.0);
-            colors.push(0.0, 0.0, 0.0, 1.0);
-            colors.push(0.0, 0.0, 0.0, 1.0);
-            colors.push(0.0, 0.0, 0.0, 1.0);
+            valueOfCases[i][j] = 0;
           }
         }
       }
       colorBuffer = getVertexBufferWithVertices(colors);
-      console.log(liveCount/100);
+      vertexBuffer = getVertexBufferWithVertices(vertices);
+      indexBuffer = getIndexBufferWithIndices(indices);
+      normalBuffer = getVertexBufferWithVertices(normals);
     }
 
     function updateGrid() { //perform one iteration of grid update
-        for (var j = 1; j < gridHeight-1; j++) { //iterate through rows
-            for (var k = 1; k < gridWidth-1; k++) { //iterate through columns
+        for (var j = 1; j < gridSize-1; j++) { //iterate through rows
+            for (var k = 1; k < gridSize-1; k++) { //iterate through columns
                 var totalCells = 0;
                 //add up the total values for the surrounding cells
                 totalCells += theGrid[j - 1][k - 1]; //top left
@@ -209,13 +361,13 @@
         }
 
         //mirror edges to create wraparound effect
-        for (var l = 1; l < gridHeight - 1; l++) { //iterate through rows
+        for (var l = 1; l < gridSize - 1; l++) { //iterate through rows
             //top and bottom
-            mirrorGrid[l][0] = mirrorGrid[l][gridHeight - 3];
-            mirrorGrid[l][gridHeight - 1] = mirrorGrid[l][1];
+            mirrorGrid[l][0] = mirrorGrid[l][gridSize - 3];
+            mirrorGrid[l][gridSize - 1] = mirrorGrid[l][1];
             //left and right
-            mirrorGrid[0][l] = mirrorGrid[gridHeight - 3][l];
-            mirrorGrid[gridHeight - 1][l] = mirrorGrid[1][l];
+            mirrorGrid[0][l] = mirrorGrid[gridSize - 3][l];
+            mirrorGrid[gridSize - 1][l] = mirrorGrid[1][l];
         }
 
 
@@ -226,7 +378,9 @@
     }
 
   </script>
-  <title>Team 4 - Labo 1</title>
+  <title>Team4 - Labo2 - 3D Game of Life</title>
+  <link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet">
+  <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
 </head>
 
 <body onload="initWebGL()">
@@ -234,47 +388,53 @@
     <div class="page-header">
       <h3>
         <a href="http://he-arc.ch"><img src="external/resources/img/logo_hearc_ingenierie.png" alt="logo_hearc_ingenierie" width="150px" /></a> 3252.1 Infographie
-
       </h3>
-      <p class="lead">Authors : Team 4 (Quentin Michel, Mateo Martinez & Damian Petroff - INF3dlm-b)<br>Last update : 23th October 2018</p>
-      <hr><br>
-      <h1 class="center">Labo 1 : Un cube chromatique avec lequel on peut interagir</h1>
-    </div><br><br>
+      <p class="lead">Authors : Team 4 (Quentin Michel & Damian Petroff - INF3dlm-b)<br>Last update : 2nd December 2018</p>
+      <hr>
+    </div>
     <div class="row">
       <div class="col-md-12 col-sm-12">
         <h3><img src="external/resources/img/flag_fr.png" alt="flag_fr" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/-->
-        <p>Le but de ce laboratoire est de permettre la visualisation d'un cube chromatique en 3D. Il est possible de visualiser le cube sous tous ses angles en le faisant tourner avec la souris.</p>
-        <p>En gise de bonus, nous avons également réalisé un cone HSV (<b>surface courbe</b>), qui définit l'espace couleur Hue-Saturation-Value</p>
-        <p>Chacune des deux formes est formée par seulement 2 TRIANGLE_FANs utilisant chacun comme hub les sommets blancs et noirs.</p>
-        <!--<h3><img src="external/resources/img/flag_en.png" alt="flag_en" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/->
-        <p>The purpose of this practical work is to allow the visualization of 3D chromatic cube.</p>-->
+                <!--<h3><img src="external/resources/img/flag_en.png" alt="flag_en" width="20"/> Introduction</h3> <!--icon source : https://www.flaticon.com/ -->
+        <p>Le but de ce labo est de rendre un jeu de la vie en 3D sur un plateau de jeu sous forme de texture paramétrable (dans le code). À cela s'ajoute un jeu de lumière sur le plan de jeu.</p>
       </div>
     </div>
-    <hr>
+    <br><br>
     <div class="row">
-      <div class="col-md-8 col-sm-12">
-        <canvas id="webgl-canvas" width="750" height="750">
-    			HTML5 is not supported
-    		</canvas>
+      <div class="col-md-12 col-sm-12 center">
+        <div class="container">
+          <canvas id="text" width="820" height="50">HTML5 is not supported</canvas>
+          <canvas id="webgl-canvas" width="1000" height="1000">
+      			HTML5 is not supported
+      		</canvas>
+        </div>
       </div>
-      <div class="col-md-4 col-sm-12">
-        <h2>Settings</h2><br><br>
+    </div>
+    <div class="row">
+      <div class="col-md-12 col-sm-12">
+        <div class="buttonfill center">
+            <button type="button" class="btn btn-primary" onclick="fillRandom();">Fill the board randomly !</button>
+        </div>
+        <h2>Interactions</h2><br><br>
+        <label for="useLightCheckBox">Light</label><br>
         <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <label class="input-group-text" for="modes">Mode</label>
+
+          <br>
+          <input id="useLightCheckBox" class="form-check-input" type="checkbox" checked data-toggle="toggle" onchange="setResetLightVector('useLightCheckBox')"></input>
+        </div>
+        <div class="input-group mb-3">
+          <label for="rangerangeSize">Size of the board</label>
+          <div class="range range-primary">
+              <input id ="rangeSize" type="range" name="range" min="25" max="200" step="1" value="100" onchange="resetGame(value);rangeSizeOutput.value=value">
+              <output id="rangeSizeOutput">100</output>
           </div>
-          <select class="custom-select" id="modes">
-            <option value="cube" selected>RGB Cube</option>
-            <option value="cone">HSV Cone</option>
-          </select>
         </div>
-        <label for="range">Size of the board</label>
-        <div class="range range-success">
-            <input id ="rangeCursor" type="range" name="range" min="50" max="100" value="50" onchange="initBuffers(value);range.value=value">
-            <output id="range">50</output>
-        </div>
-        </div class="row">
-          <output id="la">value</output>
+        <div class="input-group mb-3">
+          <label for="rangeSpeed">Speed</label>
+          <div class="range range-primary">
+              <input id ="rangeSpeed" type="range" name="range" min="1" max="10" value="9" onchange="tickSpeed=value;rangeSpeedOutput.value=value">
+              <output id="rangeSpeedOutput">9</output>
+          </div>
         </div>
       </div>
     </div>
@@ -288,59 +448,18 @@
       <li>Bootstrap : <a class="outerlink" href="https://getbootstrap.com"></a></li>
       <li>JQuery : <a class="outerlink" href="https://jquery.com/"></a></li>
     </ul>
-      <p class="lead center">Quentin Michel, Mateo Martinez, Damian Petroff - HE-Arc - 2018</p>
+      <p class="lead center">Quentin Michel & Damian Petroff - HE-Arc - 2018</p>
     </div>
 </body>
+<script src='./js/mouseMotionHandling.js'></script>
 <script id='code-js' type="text/javascript">
-
-  var myCanvas = document.getElementById('webgl-canvas');
-  var mousedown = false;
-  var viewMatrix = mat4.create();
-  var anglex = 0.0;
-  var angley = 0.0;
-  var lastX = 0.0;
-  var lastY = 0.0;
-  myCanvas.addEventListener('mousedown', function(evt) {
-    mousedown = true;
-  }, false);
-  myCanvas.addEventListener('mouseup', function(evt) {
-    mousedown = false;
-  }, false);
-  myCanvas.addEventListener('mousemove', function(evt) {
-    if (mousedown) {
-      var mousePos = {
-        x: evt.offsetX,
-        y: evt.offsetY
-      }
-      var pX = (mousePos.x - myCanvas.width / 2.0) / myCanvas.width * 2.0;
-      var pY = (myCanvas.height / 2.0 - mousePos.y) / myCanvas.height * 2.0;
-      var message = 'angle: ' + anglex + ',' + angley;
-      var factorRotation =5;
-      anglex += factorRotation * (pX-lastX);
-      angley += factorRotation * (pY-lastY);
-      mvMatrix = getTransformationMatrix(angley, anglex, 0);
-      lastX = pX;
-      lastY = pY;
-      //console.log(message);
-    }
-  }, false);
-  // Gets a transformation matrix given the rotation angles
-  function getTransformationMatrix(rx, ry, rz) {
-    // Pre-computes trigonometric values (mainly for better readability)
-    var cx = Math.cos(rx),
-      sx = Math.sin(rx);
-    var cy = Math.cos(ry),
-      sy = Math.sin(ry);
-    var cz = Math.cos(rz),
-      sz = Math.sin(rz);
-
-    // Returns matrix
-    return new Float32Array([cy * cz, (sx * sy * cz - cx * sz), (sx * sz + cx * sy * cz), 0,
-      cy * sz, (sx * sy * sz + cx * cz), (cx * sy * sz - sx * cz), 0,
-      -sy, sx * cy, cx * cy, 0,
-      0, 0, 0, 1
-    ]);
-  }
+$( document ).ready(function() {
+    console.log( "ready!" );
+    var textCanvas = document.getElementById("text");
+    var ctx = textCanvas.getContext("2d");
+    ctx.font = "50px Segoe UI Light";
+    ctx.fillText("Labo 2 : 3D Game of Life", 300, 48);
+    ctx.restore();
+});
 </script>
-
 </html>
