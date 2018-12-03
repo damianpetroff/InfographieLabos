@@ -2,8 +2,11 @@ $( document ).ready(function() {
     var textCanvas = document.getElementById("text");
     var ctx = textCanvas.getContext("2d");
     ctx.font = "50px Segoe UI Light";
-    ctx.fillText("Labo 2 : 3D Game of Life", 300, 48);
+    ctx.fillText("Labo 2 : 3D Game of Life", 300, 38);
     ctx.restore();
+    var sliderRules = new Slider('#rangeRules', {});
+    var sliderSize = new Slider('#rangeSize', {});
+    var sliderSpeed = new Slider('#rangeSpeed', {});
 });
 var currentTexID = 1;
 const maxSample = 1;
@@ -91,7 +94,7 @@ function drawScene() {
   glContext.clear(glContext.COLOR_BUFFER_BIT | glContext.DEPTH_BUFFER_BIT);
   glContext.viewport(0, 0, c_width, c_height);
   mat4.perspective(pMatrix, degToRad(60), c_width / c_height, 0.1, 1000.0);
-  mat4.translate(pMatrix, pMatrix, [0.0, 0.0, -1.55]);
+  mat4.translate(pMatrix, pMatrix, [0.0, 0.0, -1.75]);
   rotateModelViewMatrixUsingQuaternion(true);
   glContext.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
   glContext.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
@@ -259,6 +262,9 @@ function drawGrid() { //draw the contents of the grid onto a canvas
   normalBuffer = getVertexBufferWithVertices(normals);
 }
 
+var downBound = 2;
+var upBound = 3;
+
 function updateGrid() { //perform one iteration of grid update
     for (var j = 1; j < gridSize-1; j++) { //iterate through rows
         for (var k = 1; k < gridSize-1; k++) { //iterate through columns
@@ -276,17 +282,14 @@ function updateGrid() { //perform one iteration of grid update
             totalCells += theGrid[j + 1][k + 1]; //bottom right
 
             //apply the rules to each cell
-            switch (totalCells) {
-                case 2:
-                    mirrorGrid[j][k] = theGrid[j][k];
-
-                    break;
-                case 3:
-                    mirrorGrid[j][k] = 1; //live
-
-                    break;
-                default:
-                    mirrorGrid[j][k] = 0; //
+            if(totalCells == downBound) {
+              mirrorGrid[j][k] = theGrid[j][k];
+            }
+            else if(totalCells > downBound && totalCells<=upBound) {
+              mirrorGrid[j][k] = 1; //live
+            }
+            else {
+              mirrorGrid[j][k] = 0; //die
             }
         }
     }
